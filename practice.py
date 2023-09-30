@@ -15,7 +15,7 @@ class Guitator:
         self.audio = pyaudio.PyAudio()
         self.Filter_THRESHOLD = 1400000 
         self.Filter_freq_range = (77, 1000)
-        self.valid_buffer = 3
+        self.valid_buffer = 6
         self.tune_list = {
             'e2':('E','2',82.41,[0,-1,-1,-1,-1,-1]),
             'f2':('F','2',87.31,[1,-1,-1,-1,-1,-1]),
@@ -65,6 +65,35 @@ class Guitator:
                 text = str(number[i])
                 cv2.putText(image, text, (int(mid_pt[0]),int(end_point[1])+10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
    
+    def drawIndicator(self,image,curr,target):
+        height,width = image.shape[0:2]
+        length = width*0.3
+        indicator_mid =  np.array([width*0.5,height*0.2])
+        
+        total_buff=30
+        indicator = (curr-target)/total_buff
+        if indicator>1:
+            indicator=1
+        elif indicator<-1:
+            indicator=-1
+        print(indicator)
+        pos = indicator*length
+        start_point = indicator_mid+np.array([pos,0])+np.array([0,-10])
+        end_point = indicator_mid+np.array([pos,0])+np.array([0,10])
+        cv2.line(image, (int(start_point[0]),int(start_point[1])), (int(end_point[0]),int(end_point[1])), (255,255,255), thickness=2)
+
+        indicator = self.valid_buffer/total_buff
+        pos = indicator*length
+        start_point = indicator_mid+np.array([pos,0])+np.array([0,-20])
+        end_point = indicator_mid+np.array([pos,0])+np.array([0,20])
+        cv2.line(image, (int(start_point[0]),int(start_point[1])), (int(end_point[0]),int(end_point[1])), (255,255,255), thickness=1)
+
+        indicator = -self.valid_buffer/total_buff
+        pos = indicator*length
+        start_point = indicator_mid+np.array([pos,0])+np.array([0,-20])
+        end_point = indicator_mid+np.array([pos,0])+np.array([0,20])
+        cv2.line(image, (int(start_point[0]),int(start_point[1])), (int(end_point[0]),int(end_point[1])), (255,255,255), thickness=1)
+
     def getHz(self, fft_result):
         freqs = np.fft.fftfreq(len(fft_result), 1.0 / self.RATE)
         magnitudes = np.abs(fft_result)
@@ -98,7 +127,7 @@ class Guitator:
 
         
         width, height = 500, 500
-        random_value =self.tune_list['e2']
+        random_value =self.tune_list['e3']
         rate = 1
         image = np.zeros((height, width, 3), dtype=np.uint8)
 
@@ -116,8 +145,6 @@ class Guitator:
                 # Find the lowest frequency above the threshold
                 dominant_frequency = self.getHz(filtered_fft_result)
 
-                print(f"Dominant Frequency: {dominant_frequency} Hz")
-
                 now = time.time()
                 image = np.zeros((height, width, 3), dtype=np.uint8)
 
@@ -126,6 +153,8 @@ class Guitator:
                 #         if abs(hz - random_value[2])<self.valid_buffer:
                 #             valid=True
                 if dominant_frequency:
+                    print(f"Dominant Frequency: {dominant_frequency} Hz")
+                    self.drawIndicator(image,dominant_frequency,random_value[2])
                     if abs(dominant_frequency - random_value[2])<self.valid_buffer:
                                 valid=True
                 # if now-timer>round(1/rate):
@@ -152,13 +181,17 @@ class Guitator:
                 key = cv2.waitKey(1)
                 if key==ord("q"):
                     break
-                elif key==ord("a"):
-                    rate+=0.1
+                elif key==ord("w"):
+                    rate+=0.2
+                elif key ==ord("s"):
+                    rate-=0.2
+                elif key ==ord("a"):
+                    self.valid_buffer+=1
                 elif key ==ord("d"):
-                    rate-=0.1
+                    self.valid_buffer-=1
                 rate = round(rate,1)
                 if rate<=0:
-                    rate = 0.1
+                    rate = 0.2
 
         except KeyboardInterrupt:
             pass
